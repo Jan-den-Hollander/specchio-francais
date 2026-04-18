@@ -2,7 +2,6 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import { GuidaSection } from './GuidaInstructions';
 import { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, Modality } from "@google/genai";
 import { Mic, MicOff, Volume2, Sparkles, Camera, CameraOff, ChevronRight, RotateCcw, Settings, MessageSquare, Trophy, Save, Key } from 'lucide-react';
@@ -18,7 +17,6 @@ interface Message {
   heard?: string;
 }
 
-// ✅ Prompt als constante ZONDER ${level} en ${topic} — die komen in generateAIResponse
 const SYSTEM_PROMPT = `Sei Sophie, una simpatica partner di conversazione in francese — come uno specchio magico che parla.
 REGOLE: UNA frase breve in francese per turno (max 12 parole). Termina sempre con una domanda. Usa francese naturale e moderno. Parla in modo caldo e incoraggiante. Correggi gli errori gentilmente con ✏️
 Rispondi SOLO con JSON valido, senza spiegazioni o Markdown: {"fr":"frase in francese","it":"traduzione italiana"}`;
@@ -31,7 +29,7 @@ export default function App() {
   const [level, setLevel] = useState('A2');
   const [topic, setTopic] = useState('vita quotidiana');
   const [score, setScore] = useState(0);
-  const [status, setStatus] = useState('Pronto · Prêt');
+  const [status, setStatus] = useState('Pronto · Pret');
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [customKey, setCustomKey] = useState(localStorage.getItem('specchio_francese_api_key') || '');
@@ -57,7 +55,7 @@ export default function App() {
     localStorage.setItem('specchio_francese_api_key', key);
     setCustomKey(key);
     setShowKeyModal(false);
-    setStatus('Chiave API salvata! · Sauvegardé !');
+    setStatus('Chiave API salvata! · Sauvegarde!');
   };
 
   const prevMessagesLength = useRef(0);
@@ -82,7 +80,7 @@ export default function App() {
       streamRef.current = null;
       if (videoRef.current) videoRef.current.srcObject = null;
       setIsCamOn(false);
-      setStatus('Specchio spento · Miroir éteint');
+      setStatus('Specchio spento · Miroir eteint');
     } else {
       try {
         setStatus('Avvio fotocamera...');
@@ -94,9 +92,9 @@ export default function App() {
         }
         streamRef.current = stream;
         setIsCamOn(true);
-        setStatus('Specchio attivo! ✨ · Miroir actif !');
+        setStatus('Specchio attivo! ✨ · Miroir actif!');
       } catch {
-        setStatus('Accesso fotocamera negato · Accès refusé');
+        setStatus('Accesso fotocamera negato · Acces refuse');
         setIsCamOn(false);
       }
     }
@@ -113,11 +111,7 @@ export default function App() {
         contents: [{ parts: [{ text }] }],
         config: {
           responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: "Leda" }
-            }
-          }
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Leda" } } }
         },
       });
       const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
@@ -136,13 +130,13 @@ export default function App() {
         const source = audioContextRef.current.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(audioContextRef.current.destination);
-        source.onended = () => { setIsSpeaking(false); setStatus('Premi 🎤 per rispondere · Appuie 🎤 pour répondre'); };
+        source.onended = () => { setIsSpeaking(false); setStatus('Premi 🎤 per rispondere · Appuie 🎤 pour repondre'); };
         source.start();
       } else throw new Error("No audio");
     } catch {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'fr-FR'; utterance.rate = 0.85;
-      utterance.onend = () => { setIsSpeaking(false); setStatus('Premi 🎤 per rispondere · Appuie 🎤 pour répondre'); };
+      utterance.onend = () => { setIsSpeaking(false); setStatus('Premi 🎤 per rispondere · Appuie 🎤 pour repondre'); };
       window.speechSynthesis.speak(utterance);
       setStatus('Voce del browser utilizzata (fallback)');
     }
@@ -159,7 +153,7 @@ export default function App() {
       recognitionRef.current.lang = 'fr-FR';
       recognitionRef.current.continuous = false;
       recognitionRef.current.interimResults = false;
-      recognitionRef.current.onstart = () => { setIsRecording(true); setStatus("Ascolto... · J'écoute..."); };
+      recognitionRef.current.onstart = () => { setIsRecording(true); setStatus('Ascolto... · Ecoute...'); };
       recognitionRef.current.onresult = (e: any) => { setIsRecording(false); processHeard(e.results[0][0].transcript); };
       recognitionRef.current.onerror = () => { setIsRecording(false); setStatus('Errore microfono.'); };
       recognitionRef.current.onend = () => setIsRecording(false);
@@ -184,19 +178,18 @@ export default function App() {
   };
 
   const calculateSimilarity = (s1: string, s2: string) => {
-    const a = s1.toLowerCase().replace(/[.,/#!$%^&*;:{}=\-_`~()«»]/g, "");
-    const b = s2.toLowerCase().replace(/[.,/#!$%^&*;:{}=\-_`~()«»]/g, "");
+    const a = s1.toLowerCase().replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "");
+    const b = s2.toLowerCase().replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "");
     if (a === b) return 1;
     if (a.includes(b) || b.includes(a)) return 0.8;
     return 0.5;
   };
 
-  // ✅ Zelfde patroon als Nederlands: SYSTEM_PROMPT + niveau/onderwerp in generateAIResponse
   const generateAIResponse = async (history: Message[], retryCount = 0) => {
     setIsThinking(true);
     setStatus(retryCount > 0
-      ? 'Ancora un tentativo... · On réessaie...'
-      : 'Lo specchio pensa... · Le miroir réfléchit...'
+      ? 'Ancora un tentativo... · On reessaie...'
+      : 'Lo specchio pensa... · Le miroir reflechit...'
     );
 
     const systemPrompt = `${SYSTEM_PROMPT}\nLivello: ${level}. Argomento attuale: ${topic}.`;
@@ -205,18 +198,14 @@ export default function App() {
       .filter(m => m.role !== 'error')
       .map(m => ({
         role: m.role === 'user' ? 'user' : 'model',
-        parts: [{ text: m.role === 'user'
-          ? m.fr
-          : JSON.stringify({ fr: m.fr, it: m.it }) }]
+        parts: [{ text: m.role === 'user' ? m.fr : JSON.stringify({ fr: m.fr, it: m.it }) }]
       }));
 
     try {
       const aiInstance = getAI();
-
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('TIMEOUT')), 12000)
       );
-
       const responsePromise = aiInstance.models.generateContent({
         model: retryCount > 0 ? "gemini-2.0-flash" : "gemini-2.5-flash",
         contents: contents.length > 0
@@ -224,18 +213,12 @@ export default function App() {
           : [{ role: 'user', parts: [{ text: 'Inizia la conversazione con un saluto caloroso in francese e una domanda.' }] }],
         config: { systemInstruction: systemPrompt, responseMimeType: "application/json" },
       });
-
       const response = await Promise.race([responsePromise, timeoutPromise]);
       const data = JSON.parse(response.text || "{}");
-      const aiMsg: Message = {
-        role: 'model',
-        fr: data.fr || "Bonjour ! Comment allez-vous ?",
-        it: data.it || "Ciao! Come stai?",
-      };
+      const aiMsg: Message = { role: 'model', fr: data.fr || "Bonjour! Comment allez-vous?", it: data.it || "Ciao! Come stai?" };
       setMessages(prev => [...prev, aiMsg]);
       setIsThinking(false);
       speakIt(aiMsg.fr);
-
     } catch {
       if (retryCount === 0) {
         setStatus('Connessione lenta, riprovo...');
@@ -243,9 +226,8 @@ export default function App() {
         return;
       }
       setIsThinking(false);
-      setStatus('Server sovraccarico · Serveur surchargé');
-      const errorMsg: Message = { role: 'error', fr: '', it: '' };
-      setMessages(prev => [...prev, errorMsg]);
+      setStatus('Server sovraccarico · Serveur surcharge');
+      setMessages(prev => [...prev, { role: 'error', fr: '', it: '' }]);
     }
   };
 
@@ -275,21 +257,19 @@ export default function App() {
         <header className="text-center pb-4">
           <motion.h1 initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
             className="font-serif text-3xl font-light tracking-widest text-[#8fa8e8] drop-shadow-[0_0_20px_rgba(63,81,181,0.4)]">
-            Specchio Français
+            Specchio Francais
           </motion.h1>
           <a href="#guida"
             className="text-[0.55rem] tracking-[0.15em] uppercase opacity-40 hover:opacity-80 transition-opacity mt-1 block"
             style={{ color: 'inherit' }}>
-            Come iniziare · Comment commencer · How to start ↓
+            Come iniziare · Comment commencer · How to start
           </a>
           <p className="text-[0.6rem] tracking-[0.2em] uppercase text-[#3f51b5]/50 mt-1">
-            Sophie · Paris · Français
+            Sophie · Paris · Francais
           </p>
         </header>
 
-        {/* Mirror + Flanking Flags */}
         <div className="relative flex items-center justify-center mb-5">
-
           {showFlags && (
             <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}
               className="flex flex-col items-center gap-1 mr-5 select-none">
@@ -308,7 +288,7 @@ export default function App() {
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                       className="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
                       <Sparkles className="w-8 h-8 text-[#3f51b5] mb-2 animate-pulse" />
-                      <small className="text-[#3f51b5]/60 text-[0.6rem] uppercase tracking-wider leading-relaxed">Specchio spento<br/>Miroir éteint</small>
+                      <small className="text-[#3f51b5]/60 text-[0.6rem] uppercase tracking-wider leading-relaxed">Specchio spento<br/>Miroir eteint</small>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -327,7 +307,7 @@ export default function App() {
                 {isCamOn ? <CameraOff size={10} /> : <Camera size={10} />}
                 <span>{isCamOn ? 'Spegni Specchio' : 'Accendi Specchio'}</span>
               </div>
-              <span className="text-[0.45rem] opacity-60">{isCamOn ? 'Éteindre miroir' : 'Allumer miroir'}</span>
+              <span className="text-[0.45rem] opacity-60">{isCamOn ? 'Eteindre miroir' : 'Allumer miroir'}</span>
             </button>
           </div>
 
@@ -335,12 +315,11 @@ export default function App() {
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}
               className="flex flex-col items-center gap-1 ml-5 select-none">
               <span className="text-4xl drop-shadow-lg">🇫🇷</span>
-              <span className="text-[0.5rem] tracking-widest uppercase text-[#3f51b5]/40">Français</span>
+              <span className="text-[0.5rem] tracking-widest uppercase text-[#3f51b5]/40">Francais</span>
             </motion.div>
           )}
         </div>
 
-        {/* Settings */}
         <div className="grid grid-cols-2 gap-2 mb-4">
           <div className="space-y-1">
             <label className="text-[0.55rem] uppercase tracking-widest text-[#3f51b5]/50 ml-1 flex items-center gap-1"><Settings size={8} /> Livello · Niveau</label>
@@ -367,14 +346,13 @@ export default function App() {
           </div>
         </div>
 
-        {/* Action Row */}
         <div className="flex items-center justify-center gap-6 mb-2">
           <div className="flex flex-col items-center gap-1">
             <button type="button" onClick={() => messages.length > 0 && speakIt(messages[messages.length-1].fr)}
               className="w-10 h-10 rounded-full bg-[#3f51b5]/10 border border-[#3f51b5]/20 flex items-center justify-center text-[#8fa8e8]">
               <Volume2 size={16} />
             </button>
-            <span className="text-[0.5rem] uppercase tracking-widest text-[#3f51b5]/60 text-center leading-tight">Riascolta<br/><span className="text-[#3f51b5]/40">Réécouter</span></span>
+            <span className="text-[0.5rem] uppercase tracking-widest text-[#3f51b5]/60 text-center leading-tight">Riascolta<br/><span className="text-[#3f51b5]/40">Reecouter</span></span>
           </div>
 
           <div className="flex flex-col items-center gap-1">
@@ -383,7 +361,7 @@ export default function App() {
               {isRecording ? <MicOff size={24} className="text-red-500" /> : <Mic size={24} className="text-white" />}
             </button>
             <span className={`text-[0.55rem] uppercase tracking-widest font-bold text-center leading-tight ${isRecording ? 'text-red-500' : 'text-[#8fa8e8]'}`}>
-              {isRecording ? <>Ascolto...<br/><span className="opacity-60">{"J'écoute"}</span></> : <>Rispondi<br/><span className="opacity-60">Répondre</span></>}
+              {isRecording ? <>Ascolto...<br/><span className="opacity-60">Ecoute</span></> : <>Rispondi<br/><span className="opacity-60">Repondre</span></>}
             </span>
           </div>
 
@@ -400,62 +378,30 @@ export default function App() {
           <p className="text-[0.65rem] text-[#8fa8e8]/60 min-h-[1em] italic font-medium">{status}</p>
         </div>
 
-        {/* Chat */}
-        <div className="w-full h-[35vh] min-h-[250px] bg-black/30 border border-[#3f51b5]/10 rounded-xl overflow-y-auto p-3 space-y-3 scrollbar-thin mb-4">
-
+        <div className="w-full h-[35vh] min-h-[250px] bg-black/30 border border-[#3f51b5]/10 rounded-xl overflow-y-auto p-3 space-y-3 mb-4">
           {messages.map((msg, i) => {
-
             if (msg.role === 'error') {
               return (
                 <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                   className="flex flex-col items-start">
                   <div className="w-full px-3 py-3 rounded-xl rounded-bl-none text-[0.72rem] leading-relaxed bg-amber-900/20 border border-amber-500/30 space-y-2">
-
-                    <p className="text-amber-300 font-semibold text-[0.75rem]">
-                      ⚠️ Le miroir est momentanément surchargé
-                    </p>
-
-                    <p className="text-amber-200/70">
-                      🕐 Le serveur gratuit est le plus occupé en journée et tard le soir
-                      (quand les gamers américains sont en ligne). Les meilleurs moments pour pratiquer :
-                      tôt le matin ou entre 13h00 et 15h00.
-                    </p>
-
-                    <p className="text-amber-200/70">
-                      🎤 Pas de problème ! Clique sur le micro pour lire une phrase à voix haute
-                      et sur le haut-parleur 🔊 pour la réécouter.
-                      Tu peux quand même pratiquer en attendant !
-                    </p>
-
-                    <p className="text-amber-200/50 text-[0.65rem] italic">
-                      🇮🇹 Nessun problema! Clicca sul microfono per leggere una frase
-                      ad alta voce e sull'altoparlante per riascoltarla. Puoi esercitarti lo stesso!
-                    </p>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMessages(prev => prev.filter((_, idx) => idx !== i));
-                        generateAIResponse(messages.filter(m => m.role !== 'error'));
-                      }}
-                      className="mt-1 px-3 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[0.6rem] uppercase tracking-widest hover:bg-amber-500/30 transition-colors"
-                    >
-                      ↻ Réessayer · Riprova
+                    <p className="text-amber-300 font-semibold text-[0.75rem]">Le miroir est momentanement surcharge</p>
+                    <p className="text-amber-200/70">Le serveur gratuit est le plus occupe en journee et tard le soir. Les meilleurs moments pour pratiquer: tot le matin ou entre 13h00 et 15h00.</p>
+                    <p className="text-amber-200/70">Clique sur le micro pour lire une phrase a voix haute et sur le haut-parleur pour la reecouter. Tu peux quand meme pratiquer en attendant!</p>
+                    <p className="text-amber-200/50 text-[0.65rem] italic">Nessun problema! Clicca sul microfono per leggere una frase e sull'altoparlante per riascoltarla. Puoi esercitarti lo stesso!</p>
+                    <button type="button"
+                      onClick={() => { setMessages(prev => prev.filter((_, idx) => idx !== i)); generateAIResponse(messages.filter(m => m.role !== 'error')); }}
+                      className="mt-1 px-3 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[0.6rem] uppercase tracking-widest hover:bg-amber-500/30 transition-colors">
+                      Reessayer - Riprova
                     </button>
-
                   </div>
                 </motion.div>
               );
             }
-
             return (
               <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                 className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                <div className={`max-w-[90%] px-3 py-2 rounded-xl text-[0.8rem] leading-relaxed ${
-                  msg.role === 'user'
-                    ? 'bg-white/5 border border-white/10 rounded-br-none italic text-white/80'
-                    : 'bg-gradient-to-br from-[#3f51b5]/10 to-[#3f51b5]/5 border border-[#3f51b5]/20 rounded-bl-none'
-                }`}>
+                <div className={`max-w-[90%] px-3 py-2 rounded-xl text-[0.8rem] leading-relaxed ${msg.role === 'user' ? 'bg-white/5 border border-white/10 rounded-br-none italic text-white/80' : 'bg-gradient-to-br from-[#3f51b5]/10 to-[#3f51b5]/5 border border-[#3f51b5]/20 rounded-bl-none'}`}>
                   {msg.role === 'model' ? (
                     <>
                       <span className="font-serif italic text-base text-[#8fa8e8] block mb-0.5">{msg.fr}</span>
@@ -465,12 +411,8 @@ export default function App() {
                     <>
                       <span>{msg.fr}</span>
                       {msg.score !== undefined && (
-                        <div className={`mt-1.5 text-[0.55rem] font-bold uppercase px-1.5 py-0.5 rounded-sm inline-block ${
-                          msg.score === 2 ? 'bg-green-500/10 text-green-400'
-                          : msg.score === 1 ? 'bg-yellow-500/10 text-yellow-400'
-                          : 'bg-red-500/10 text-red-400'
-                        }`}>
-                          {msg.score === 2 ? '✓ Très bien !' : msg.score === 1 ? '~ Presque !' : '↻ Réessaie'}
+                        <div className={`mt-1.5 text-[0.55rem] font-bold uppercase px-1.5 py-0.5 rounded-sm inline-block ${msg.score === 2 ? 'bg-green-500/10 text-green-400' : msg.score === 1 ? 'bg-yellow-500/10 text-yellow-400' : 'bg-red-500/10 text-red-400'}`}>
+                          {msg.score === 2 ? 'Tres bien!' : msg.score === 1 ? 'Presque!' : 'Reessaie'}
                         </div>
                       )}
                     </>
@@ -479,7 +421,6 @@ export default function App() {
               </motion.div>
             );
           })}
-
           {isThinking && (
             <div className="flex gap-1.5 p-2 bg-[#3f51b5]/5 border border-[#3f51b5]/10 rounded-xl rounded-bl-none w-12">
               <div className="w-1 h-1 bg-[#8fa8e8] rounded-full animate-bounce" />
@@ -490,19 +431,16 @@ export default function App() {
           <div ref={chatEndRef} />
         </div>
 
-        {/* Bottom */}
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between border-b border-[#3f51b5]/10 pb-3">
             <div className="flex items-center gap-1.5 text-[#3f51b5]/60 text-[0.6rem] uppercase tracking-widest"><Trophy size={12} /> Punteggio · Score</div>
             <div className="text-[#8fa8e8] font-bold text-lg">⭐ {score}</div>
           </div>
-
           <button type="button" onClick={startNewConversation}
             className="w-full py-3 border border-[#3f51b5]/30 bg-[#3f51b5]/5 rounded-xl text-[0.7rem] tracking-[0.2em] uppercase text-[#8fa8e8] hover:bg-[#3f51b5]/10 flex flex-col items-center justify-center gap-1">
             <div className="flex items-center gap-2"><RotateCcw size={14} /> Nuova Conversazione</div>
             <span className="text-[0.55rem] opacity-60">Nouvelle conversation</span>
           </button>
-
           <div className="flex gap-2">
             <button type="button" onClick={downloadTranscript}
               className="flex-1 py-2 border border-[#3f51b5]/10 rounded-lg text-[0.6rem] tracking-widest uppercase text-[#3f51b5]/60 hover:text-[#8fa8e8] flex flex-col items-center gap-0.5">
@@ -523,7 +461,7 @@ export default function App() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm">
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-[#080818] border border-[#3f51b5]/30 p-6 rounded-2xl w-full max-w-xs shadow-2xl">
               <h2 className="font-serif text-xl text-[#8fa8e8] mb-1 text-center">Gemini API Key</h2>
-              <p className="text-[0.6rem] text-[#3f51b5]/60 text-center mb-3">Chiave separata per app · Clé séparée par app</p>
+              <p className="text-[0.6rem] text-[#3f51b5]/60 text-center mb-3">Chiave separata per app - Cle separee par app</p>
               <input type="password" defaultValue={customKey} id="keyInput" className="w-full bg-black/40 border border-[#3f51b5]/20 rounded-lg px-4 py-2.5 text-sm mb-4 outline-none text-white" />
               <div className="flex gap-2">
                 <button onClick={() => setShowKeyModal(false)} className="flex-1 py-2 text-xs text-[#3f51b5]/50 border border-transparent rounded-lg">Annulla</button>
@@ -534,18 +472,9 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
-      <GuidaSection accentColor="#3f51b5" />
-      <div style={{
-        textAlign: 'center',
-        padding: '1.5rem 1rem 2rem',
-        fontSize: '0.72rem',
-        lineHeight: 1.8,
-        color: 'white',
-        opacity: 0.85,
-      }}>
-        🇮🇹 Questa app è gratuita. Se la usi spesso, ti consigliamo di creare la tua chiave API personale — è facile e gratuita su aistudio.google.com.<br /><br />
-        🇳🇱 Deze app is gratis. Gebruik je hem regelmatig, maak dan je eigen API-sleutel aan — eenvoudig en gratis via aistudio.google.com.<br /><br />
-        🇬🇧 This app is free to use. If you use it regularly, we recommend creating your own API key — quick and free at aistudio.google.com.
+
+      <div style={{ textAlign: 'center', padding: '1.5rem 1rem 2rem', fontSize: '0.72rem', lineHeight: 1.8, color: 'white', opacity: 0.85 }}>
+        Questa app e gratuita. Se la usi spesso, ti consigliamo di creare la tua chiave API personale — e facile e gratuita su aistudio.google.com.
       </div>
     </div>
   );
